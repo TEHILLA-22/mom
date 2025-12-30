@@ -1,8 +1,8 @@
 "use client";
 import * as THREE from "three";
-import { useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Image, ScrollControls, useScroll, Float } from "@react-three/drei";
+import { useRef, useState, useEffect, Suspense } from "react";
+import { Canvas, useFrame, useLoader } from "@react-three/fiber";
+import { Preload, Float, useTexture } from "@react-three/drei";
 import { motion, AnimatePresence } from "framer-motion";
 
 const IMAGE_DATA = [
@@ -13,106 +13,97 @@ const IMAGE_DATA = [
   { url: "/pkins.jpg", text: "With Love, From Your Pkins ❤️" },
 ];
 
-function CarouselItem({ url, angle, radius, isCenter }: { url: string; angle: number; radius: number; isCenter: boolean }) {
-  const ref = useRef<THREE.Group>(null);
-  
-  useFrame((state, delta) => {
-    if (ref.current) {
-      const targetScale = isCenter ? 1.4 : 1.0;
-      // '0.1' is the smoothing factor. Lower is smoother/slower.
-      ref.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1), 0.1);
-    }
-  });
-
-  return (
-    <group ref={ref}>
-      <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
-        <Image
-          url={url}
-          position={[Math.sin(angle) * radius, 0, Math.cos(angle) * radius]}
-          rotation={[0, -angle, 0]}
-          scale={[1.2, 1.6]}
-          transparent
-        />
-      </Float>
-    </group>
-  );
-}
-
-function Carousel({ radius = 2.2, setIndex }: { radius?: number; setIndex: (i: number) => void }) {
-  const scroll = useScroll();
+function Scene({ activeIndex }: { activeIndex: number }) {
   const group = useRef<THREE.Group>(null);
-  const [localIndex, setLocalIndex] = useState(0);
+  const radius = 2.5;
 
+  // Optimized smooth rotation
   useFrame((state, delta) => {
     if (group.current) {
-      // SMOOTH ROTATION: We lerp the rotation so it doesn't "snap" when the user stops scrolling
-      const targetRotation = scroll.offset * Math.PI * 2;
+      const targetRotation = -(activeIndex * ((Math.PI * 2) / IMAGE_DATA.length));
       group.current.rotation.y = THREE.MathUtils.lerp(
         group.current.rotation.y,
         targetRotation,
-        0.1 // This adds a "weighted" feel to the scroll
+        0.05 // Very smooth transition
       );
-      
-      const totalImages = IMAGE_DATA.length;
-      const currentIndex = Math.round(scroll.offset * totalImages) % totalImages;
-      
-      if (currentIndex !== localIndex) {
-        setLocalIndex(currentIndex);
-        setIndex(currentIndex);
-      }
     }
   });
 
   return (
     <group ref={group}>
       {IMAGE_DATA.map((item, i) => (
-        <CarouselItem 
-          key={i}
-          url={item.url}
-          angle={(i / IMAGE_DATA.length) * Math.PI * 2}
-          radius={radius}
-          isCenter={i === localIndex}
+        <ImageCard 
+          key={i} 
+          url={item.url} 
+          index={i} 
+          radius={radius} 
+          isActive={i === activeIndex} 
         />
       ))}
     </group>
   );
 }
 
+function ImageCard({ url, index, radius, isActive }: { url: string; index: number; radius: number; isActive: boolean }) {
+  // LAZY LOADING: useTexture loads the image and caches it
+  const texture = useTexture(url);
+  const angle = (index / IMAGE_DATA.length) * Math.PI * 2;
+  const ref = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (ref.current) {
+      const scale = isActive ? 1.5 : 1.0;
+      ref.current.scale.lerp(new THREE.Vector3(scale, scale, 1), 0.1);
+    }
+  });
+
+  return (
+    <Float speed={isActive ? 2 : 0} rotationIntensity={0.2} floatIntensity={0.5}>
+      <mesh 
+        ref={ref} 
+        position={[Math.sin(angle) * radius, 0, Math.cos(angle) * radius]}
+        rotation={[0, angle, 0]}
+      >
+        <planeGeometry args={[1.2, 1.6]} />
+        <meshBasicMaterial map={texture} transparent side={THREE.DoubleSide} />
+      </mesh>
+    </Float>
+  );
+}
+
 export default function ImageCarouselSection() {
   const [index, setIndex] = useState(0);
 
-  return (
-    <div className="w-full h-[75vh] relative flex flex-col justify-center items-center overflow-hidden">
-      <div className="w-full h-full cursor-grab active:cursor-grabbing">
-        <Canvas 
-          camera={{ position: [0, 0, 5], fov: 35 }}
-          // performance optimization
-          dpr={[1, 2]} 
-        >
-          <ambientLight intensity={1.5} />
-          <pointLight position={[10, 10, 10]} intensity={2} />
-          
-          {/* Damping 0.4 makes the scroll feel like it's on oil—very smooth */}
-          <ScrollControls pages={4} horizontal damping={0.4} infinite={false}>
-            <Carousel setIndex={setIndex} />
-          </ScrollControls>
-        </Canvas>
-      </div>
+  // AUTO-PLAY LOGIC
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % IMAGE_DATA.length);
+    }, 3500); // 3.5 seconds for a premium feel
+    return () => clearInterval(interval);
+  }, []);
 
-      <div className="absolute bottom-12 left-0 w-full text-center pointer-events-none px-6">
+  return (
+    <div className="w-full h-[70vh] relative overflow-hidden bg-transparent">
+      <Canvas camera={{ position: [0, 0, 5], fov: 35 }} dpr={[1, 1.5]}>
+        <Suspense fallback={null}>
+          <Scene activeIndex={index} />
+          {/* Preloads all assets before the site is fully interactive */}
+          <Preload all />
+        </Suspense>
+      </Canvas>
+
+      {/* TEXT OVERLAY */}
+      <div className="absolute bottom-10 left-0 w-full text-center pointer-events-none">
         <AnimatePresence mode="wait">
-          <motion.div
+          <motion.p
             key={index}
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="text-gold-400 font-serif italic text-2xl drop-shadow-lg"
           >
-            <p className="text-gold-400 font-serif italic text-2xl md:text-3xl">
-               {IMAGE_DATA[index].text}
-            </p>
-          </motion.div>
+            {IMAGE_DATA[index].text}
+          </motion.p>
         </AnimatePresence>
       </div>
     </div>

@@ -1,10 +1,10 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 
-export const TypingText = ({ text }: { text: string }) => {
+export function TypingCaption({ text }: { text: string }) {
   const letters = Array.from(text);
 
-  const container = {
+  const container: Variants = {
     hidden: { opacity: 0 },
     visible: (i = 1) => ({
       opacity: 1,
@@ -12,34 +12,40 @@ export const TypingText = ({ text }: { text: string }) => {
     }),
   };
 
-  const child = {
+  const child: Variants = {
     visible: {
       opacity: 1,
       y: 0,
       transition: {
-        type: "spring",
+        type: "spring", // TypeScript now knows this is specifically a spring
         damping: 12,
         stiffness: 200,
-      },
+      } as const, // <--- ADD THIS 'as const'
     },
     hidden: {
       opacity: 0,
-      y: 20,
+      y: 10,
     },
   };
 
   return (
     <motion.div
+      style={{ display: "flex", overflow: "hidden" }}
       variants={container}
       initial="hidden"
-      whileInView="visible"
-      className="flex justify-center overflow-hidden"
+      animate="visible"
+      key={text}
+      className="justify-center"
     >
       {letters.map((letter, index) => (
-        <motion.span variants={child} key={index} className="text-white inline-block">
+        <motion.span
+          variants={child}
+          key={`${text}-${index}`}
+          className="text-gold-400 font-serif italic text-xl md:text-3xl"
+        >
           {letter === " " ? "\u00A0" : letter}
         </motion.span>
       ))}
     </motion.div>
   );
-};
+}

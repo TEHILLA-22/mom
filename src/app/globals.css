@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* src/app/globals.css */
+
+:root {
+  --glow-blue: rgba(30, 64, 175, 0.25); /* Deep royal blue */
+  --glow-gold: rgba(250, 204, 21, 0.15); /* Soft gold */
+}
+
+.queen-bg-glow {
+  position: fixed;
+  inset: 0;
+  z-index: -2; /* Stays behind everything, even the stars */
+  background: #050505;
+  overflow: hidden;
+}
+
+/* The Blue Light */
+.queen-bg-glow::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  right: -10%;
+  width: 70vw;
+  height: 70vh;
+  background: radial-gradient(circle, var(--glow-blue) 0%, transparent 70%);
+  filter: blur(80px);
+  animation: floatBlue 15s infinite alternate ease-in-out;
+}
+
+/* The Gold Light */
+.queen-bg-glow::after {
+  content: '';
+  position: absolute;
+  bottom: -10%;
+  left: -10%;
+  width: 60vw;
+  height: 60vh;
+  background: radial-gradient(circle, var(--glow-gold) 0%, transparent 70%);
+  filter: blur(80px);
+  animation: floatGold 20s infinite alternate ease-in-out;
+}
+
+@keyframes floatBlue {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-10%, 15%) scale(1.1); }
+}
+
+@keyframes floatGold {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(15%, -10%) scale(1.2); }
+}
